@@ -8,30 +8,43 @@ python run_expert.py experts/Humanoid-v2.pkl Humanoid-v1 --num_rollouts 20
 Author of this script and included expert policies: Jonathan Ho (hoj@openai.com)
 """
 
-import pickle
-import tensorflow as tf
-import numpy as np
-import tf_util
 import gym
 import load_policy
-import argparse
+import numpy as np
+import pandas as pd
+import pickle
+import tensorflow as tf
+import tf_util
+import tqdm
 
 
-def gather_expert_data(args, env):
+TASK_LIST = [
+    "Ant-v1",
+    "HalfCheetah-v1",
+    "Hopper-v1",
+    "Humanoid-v1",
+    "Reacher-v1",
+    "Walker2d-v1"
+]
+
+
+def gather_expert_data(config, env):
+    print('Gathering expert data')
     print('loading and building expert policy')
-    policy_fn = load_policy.load_policy(args.expert_policy_file)
+    policy_fn = load_policy.load_policy(config['expert_policy_file'])
     print('loaded and built')
 
     with tf.Session():
         tf_util.initialize()
 
-        max_steps = args.max_timesteps or env.spec.timestep_limit
+        max_steps = env.spec.timestep_limit
 
         returns = []
         observations = []
         actions = []
-        for i in range(args.num_rollouts):
-            print('iter', i)
+        steps_numbers = []
+
+        for i in tqdm.tqdm(range(config['num_rollouts'])):
             obs = env.reset()
             done = False
             totalr = 0.
@@ -43,34 +56,31 @@ def gather_expert_data(args, env):
                 obs, r, done, _ = env.step(action)
                 totalr += r
                 steps += 1
-                if args.render:
+                if config['render_them']:
                     env.render()
-                if steps % 100 == 0:
-                    print("%i/%i" % (steps, max_steps))
                 if steps >= max_steps:
                     break
+            steps_numbers.append(steps)
             returns.append(totalr)
-
-        print('returns', returns)
-        print('mean return', np.mean(returns))
-        print('std of return', np.std(returns))
 
         expert_data = {'observations': np.array(observations),
                        'actions': np.array(actions),
-                       'returns': np.array(returns)}
+                       'returns': np.array(returns),
+                       'steps': np.array(steps_numbers)}
 
-    pickle.dump(expert_data, open('expert_data.p', 'wb'))
+    pickle.dump(expert_data, open(config['their_data_path'], 'wb'))
     return expert_data
 
 
-def run_our_model(model, args, env):
-    max_steps = args.max_timesteps or env.spec.timestep_limit
+def test_run_our_model(model, config, env):
+    max_steps = env.spec.timestep_limit
 
     returns = []
     observations = []
     actions = []
-    for i in range(args.num_rollouts):
-        print('iter', i)
+    steps_numbers = []
+
+    for i in tqdm.tqdm(range(config['num_rollouts'])):
         obs = env.reset()
         done = False
         totalr = 0.
@@ -82,42 +92,20 @@ def run_our_model(model, args, env):
             obs, r, done, _ = env.step(action)
             totalr += r
             steps += 1
-            # if args.render:
-            env.render()
-            if steps % 100 == 0:
-                print("%i/%i" % (steps, max_steps))
+            if config['render_us']:
+                env.render()
             if steps >= max_steps:
                 break
+        steps_numbers.append(steps)
         returns.append(totalr)
-
-    print('returns', returns)
-    print('mean return', np.mean(returns))
-    print('std of return', np.std(returns))
 
     our_net_data = {'observations': np.array(observations),
                     'actions': np.array(actions),
-                    'returns': np.array(returns)}
+                    'returns': np.array(returns),
+                    'steps': np.array(steps_numbers)}
 
+    pickle.dump(our_net_data, open(config['our_data_path'], 'wb'))
     return our_net_data
-
-
-def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('expert_policy_file', type=str)
-    parser.add_argument('envname', type=str)
-    parser.add_argument('--render', action='store_true')
-    parser.add_argument("--max_timesteps", type=int)
-    parser.add_argument('--num_rollouts', type=int, default=20,
-                        help='Number of expert roll outs')
-    args = parser.parse_args()
-
-    ENV_NAME = 'Humanoid-v1'
-
-    # args = {
-    #     'expert_policy_file', 'experts/{}'.format(ENV_NAME)
-    #    parser.add_argument('envname', type=str)
-    # }
-    return args
 
 
 def train_net(data, env):
@@ -153,15 +141,68 @@ def train_net(data, env):
     return model
 
 
-def main():
-    args = parse_args()
-    env = gym.make(args.envname)
-    # data = gather_expert_data(args, env)
-    data = pickle.load(open('expert_data.p', 'rb'))
+def run_single_experiment(env_name):
+    config = get_default_config(env_name)
+
+    env = gym.make(env_name)
+
+    if config['use_cached_data_for_training']:
+        data = pickle.load(open(config['cached_data_path'], 'rb'))
+    else:
+        data = gather_expert_data(config, env)
 
     model = train_net(data, env)
-    our_data = run_our_model(model, args, env)
+    test_run_our_model(model, config, env)
 
+
+def one_data_table_stats(data):
+    mean = data['returns'].mean()
+    std = data['returns'].std()
+    x = data['steps']
+    pct_full_steps =  (x / x.max()).mean()
+
+    return pd.Series({
+        'mean reward': mean,
+        'std reward': std,
+        'pct full rollout': pct_full_steps
+    })
+
+
+def analyze_single_experiment_data(env_name):
+    config = get_default_config(env_name)
+
+    their = pickle.load(open(config['their_data_path'], 'rb'))
+    our = pickle.load(open(config['our_data_path'], 'rb'))
+
+    df = pd.DataFrame({
+        'expert': one_data_table_stats(their),
+        'imitation': one_data_table_stats(our)
+    })
+
+    print "Analyzing experiment {}".format(env_name)
+    print df
+
+
+def get_default_config(env_name):
+    return {
+        'expert_policy_file': 'experts/{}.pkl'.format(env_name),
+        'envname': env_name,
+        'render_them': False,
+        'render_us': False,
+        'num_rollouts': 30,
+        'use_cached_data_for_training': False,
+        'cached_data_path': 'data/{}-their.p'.format(env_name),
+        'their_data_path': 'data/{}-their.p'.format(env_name),
+        'our_data_path': 'data/{}-our.p'.format(env_name),
+    }
+
+
+def run_all_experiments():
+    for task in TASK_LIST:
+        run_single_experiment(task)
+
+    for task in TASK_LIST:
+        analyze_single_experiment_data(task)
 
 if __name__ == '__main__':
-    main()
+    pass
