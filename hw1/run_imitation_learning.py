@@ -1,18 +1,22 @@
 #!/usr/bin/env python
 
 """
-Code to load an expert policy and generate roll-out data for behavioral cloning.
-Example usage:
-python run_expert.py experts/Humanoid-v2.pkl Humanoid-v1 --num_rollouts 20
+Code to run imitation learning experiments, based on expert policies provided by the course staff.
 
-Author of this script and included expert policies: Jonathan Ho (hoj@openai.com)
+It implements two main modes:
+- vanilla run of a neural network policy
+- grids over some basic parameters, such as learning rate, epoch size and so on ...
+
+Author of included expert policies: Jonathan Ho (hoj@openai.com)
 """
 
 import gym
 import load_policy
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pickle
+import seaborn as sns
 import tensorflow as tf
 import tf_util
 import tqdm
@@ -108,7 +112,7 @@ def test_run_our_model(model, config, env):
     return our_net_data
 
 
-def train_net(data, env):
+def train_net(data, env, config):
     """
     What about learning rate?
     What about epochs?
@@ -117,6 +121,7 @@ def train_net(data, env):
 
     from keras.models import Sequential
     from keras.layers import Dense, Lambda
+    from keras.optimizers import Adam
 
     mean, std = np.mean(data['observations'], axis=0), np.std(data['observations'], axis=0) + 1e-6
 
@@ -130,28 +135,27 @@ def train_net(data, env):
         Dense(actions_dim)
     ])
 
-    model.compile(optimizer='adam', loss='mse', metrics=['mse'])
+    opt = Adam(lr=config['learning_rate'])
+    model.compile(optimizer=opt, loss='mse', metrics=['mse'])
     x, y = shuffle(data['observations'], data['actions'].reshape(-1, actions_dim))
     model.fit(x, y,
               validation_split=0.1,
               batch_size=256,
-              nb_epoch=30,
+              nb_epoch=config['epochs'],
               verbose=2)
 
     return model
 
 
-def run_single_experiment(env_name):
-    config = get_default_config(env_name)
-
-    env = gym.make(env_name)
+def run_single_experiment(config):
+    env = gym.make(config['env_name'])
 
     if config['use_cached_data_for_training']:
         data = pickle.load(open(config['cached_data_path'], 'rb'))
     else:
         data = gather_expert_data(config, env)
 
-    model = train_net(data, env)
+    model = train_net(data, env, config)
     test_run_our_model(model, config, env)
 
 
@@ -168,9 +172,7 @@ def one_data_table_stats(data):
     })
 
 
-def analyze_single_experiment_data(env_name):
-    config = get_default_config(env_name)
-
+def analyze_single_experiment_data(config):
     their = pickle.load(open(config['their_data_path'], 'rb'))
     our = pickle.load(open(config['our_data_path'], 'rb'))
 
@@ -179,30 +181,118 @@ def analyze_single_experiment_data(env_name):
         'imitation': one_data_table_stats(our)
     })
 
-    print "Analyzing experiment {}".format(env_name)
+    print "Analyzing experiment {}".format(config['env_name'])
     print df
 
 
 def get_default_config(env_name):
     return {
+        'env_name': env_name,
         'expert_policy_file': 'experts/{}.pkl'.format(env_name),
         'envname': env_name,
         'render_them': False,
         'render_us': False,
         'num_rollouts': 30,
-        'use_cached_data_for_training': False,
+        'use_cached_data_for_training': True,
         'cached_data_path': 'data/{}-their.p'.format(env_name),
         'their_data_path': 'data/{}-their.p'.format(env_name),
         'our_data_path': 'data/{}-our.p'.format(env_name),
+        # neural net params
+        'learning_rate': 0.001,
+        'epochs': 30
     }
 
 
-def run_all_experiments():
+def get_lr_grid_configs(env_name):
+    learning_rate_grid = np.logspace(-8, 0, num=13)
+
+    configs = []
+    for lr in learning_rate_grid:
+        config = get_default_config(env_name)
+        config['use_cached_data_for_training'] = True
+        config['our_data_path'] = 'data/{}-our-lr={:.8f}.p'.format(env_name, lr)
+        config['learning_rate'] = lr
+        configs.append(config)
+
+    return configs
+
+
+def get_epoch_grid_configs(env_name):
+    epoch_grid = [1, 2, 5, 10, 15, 20, 30, 40, 50]
+
+    configs = []
+    for epochs in epoch_grid:
+        config = get_default_config(env_name)
+        config['use_cached_data_for_training'] = True
+        config['our_data_path'] = 'data/{}-our-epochs={}.p'.format(env_name, epochs)
+        config['epochs'] = epochs
+        configs.append(config)
+
+    return configs
+
+
+def run_all_vanilla_experiments():
     for task in TASK_LIST:
-        run_single_experiment(task)
+        run_single_experiment(get_default_config(task))
 
     for task in TASK_LIST:
-        analyze_single_experiment_data(task)
+        analyze_single_experiment_data(get_default_config(task))
+
+
+def run_lr_grid(task):
+    configs = get_lr_grid_configs(task)
+
+    # for config in configs:
+    #     run_single_experiment(config)
+
+    acc = {}
+    for config in configs:
+        data = pickle.load(open(config['our_data_path'], 'rb'))['returns']
+        lr = config['learning_rate']
+        acc[lr] = data
+
+    data = pd.DataFrame(acc)
+    their_data = pickle.load(open(config['their_data_path'], 'rb'))['returns']
+    their_data = np.array([their_data for _ in xrange(data.shape[1])]).T
+
+    ax = sns.tsplot(data=data.values, color='blue', legend='Imitation learning', linestyle='-')
+    sns.tsplot(data=their_data, color='red', legend='Expert policy', linestyle='--')
+    ax.set_xticklabels(['{:.2e}'.format(x) for x in data.columns])
+
+    plt.title('Reward vs learning rate. Task = {}'.format(task))
+
+    plt.savefig('imgs/{}-lr-reward.png'.format(task))
+    plt.close()
+
+
+def run_epoch_grid(task):
+    configs = get_epoch_grid_configs(task)
+
+    # for config in configs:
+    #     run_single_experiment(config)
+
+    acc = {}
+    for config in configs:
+        data = pickle.load(open(config['our_data_path'], 'rb'))['returns']
+        lr = config['epochs']
+        acc[lr] = data
+
+    data = pd.DataFrame(acc)
+    their_data = pickle.load(open(config['their_data_path'], 'rb'))['returns']
+    their_data = np.array([their_data for _ in xrange(data.shape[1])]).T
+
+    ax = sns.tsplot(data=data.values, color='blue', legend='Imitation learning', linestyle='-')
+    sns.tsplot(data=their_data, color='red', legend='Expert policy', linestyle='--')
+    ax.set_xticklabels(data.columns)
+
+    plt.title('Reward vs no of epochs. Task = {}'.format(task))
+
+    plt.savefig('imgs/{}-epoch-reward.png'.format(task))
+    plt.close()
+
 
 if __name__ == '__main__':
-    pass
+    # run_all_vanilla_experiments()
+    for task in tqdm.tqdm(TASK_LIST):
+        run_epoch_grid(task)
+        run_lr_grid(task)
