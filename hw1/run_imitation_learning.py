@@ -232,8 +232,8 @@ def get_epoch_grid_configs(env_name):
 
 
 def run_all_vanilla_experiments():
-    for task in TASK_LIST:
-        run_single_experiment(get_default_config(task))
+    # for task in TASK_LIST:
+    #     run_single_experiment(get_default_config(task))
 
     for task in TASK_LIST:
         analyze_single_experiment_data(get_default_config(task))
@@ -255,8 +255,12 @@ def run_lr_grid(task):
     their_data = pickle.load(open(config['their_data_path'], 'rb'))['returns']
     their_data = np.array([their_data for _ in xrange(data.shape[1])]).T
 
+    # s = slice(3, -2)
+
     ax = sns.tsplot(data=data.values, color='blue', legend='Imitation learning', linestyle='-')
+
     sns.tsplot(data=their_data, color='red', legend='Expert policy', linestyle='--')
+
     ax.set_xticklabels(['{:.2e}'.format(x) for x in data.columns])
 
     plt.title('Reward vs learning rate. Task = {}'.format(task))
@@ -268,8 +272,8 @@ def run_lr_grid(task):
 def run_epoch_grid(task):
     configs = get_epoch_grid_configs(task)
 
-    # for config in configs:
-    #     run_single_experiment(config)
+    for config in configs:
+        run_single_experiment(config)
 
     acc = {}
     for config in configs:
@@ -293,6 +297,7 @@ def run_epoch_grid(task):
 
 if __name__ == '__main__':
     # run_all_vanilla_experiments()
+
     for task in tqdm.tqdm(TASK_LIST):
         run_epoch_grid(task)
         run_lr_grid(task)

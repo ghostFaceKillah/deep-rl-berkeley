@@ -1,15 +1,64 @@
-# CS294-112 HW 1: Imitation Learning
+# Solution HW no 1
 
-Dependencies: TensorFlow, MuJoCo version 1.31, OpenAI Gym
+The goal of this task was to implement behavioral cloning and DAgger policies and compare
+how well they perform compared to the provided expert policy.
 
-The only file that you need to look at is `run_expert.py`, which is code to load up an expert policy, run a specified number of roll-outs, and save out data.
+### Question 2.2 - vanilla behavioral cloning
 
-In `experts/`, the provided expert policies are:
-* Ant-v1.pkl
-* HalfCheetah-v1.pkl
-* Hopper-v1.pkl
-* Humanoid-v1.pkl
-* Reacher-v1.pkl
-* Walker2d-v1.pkl
+Architecture used:
+* Normalization of inputs (mean, std)
+* 2 Dense layers of 64 neurons, TanH activations
+* Dense output layer
+* ADAM optimizer, constant learning rate of 0.001, batch size of 256,
+  30 epochs (each over full training data)
+* 30 rollouts of the expert used, 10 % of data used for validation,
+  each rollout rolled out until open-ai-gym defined `env.spec.timestep_limit`
 
-The name of the pickle file corresponds to the name of the gym environment.
+
+###### Succesful example
+On task Ant-v1, the behavioral
+
+  Ant-v1         |      expert |   imitation
+-----------------|-------------|------------                 
+mean reward      |        4823 | 4776
+std reward       |       87    | 92
+pct full rollout |   100%      |  100%
+
+
+###### Example where expert is better
+
+  Reacher-v1         |      expert |   imitation
+-----------------|-------------|------------                 
+mean reward      |  -4.39  | -10.06
+std reward       |   2.00     | 4.62
+pct full rollout |   100%      |  100%
+
+
+
+### Question 2.3 - Sensitivity of behavioral cloning to hyperparameters
+
+Learning rate is training metaparameter that is always interesting to check.
+Here it looks as if there is pretty good stable region for the hard task.
+
+
+![Reacher reward vs learning rate](imgs/Reacher-v1-lr-reward.png)
+
+Zoom into the most interesting region.
+
+![Reacher reward vs learning rate zoom in](imgs/Reacher-v1-2-lr-reward.png)
+
+What about the number of training epochs? This give us indication about 
+how much data we need to train the cloning policy.
+
+![Reacher reward vs epoch](imgs/Reacher-v1-epoch-reward.png)
+
+
+
+### [TODO] Question 3 - DAgger
+
+ Run DAgger and report results on one task in which DAgger can learn a better 
+ policy than behavioral cloning. Report your results in the form of a learning curve, plotting the number of DAgger iterations
+ vs. the policy’s mean return, with error bars to show the standard deviation. Include the performance
+ of the expert policy and the behavioral cloning agent on the same plot. In the caption, state which
+   task you used, and any details regarding network architecture, amount of data, etc. (as in the previous
+    section).
