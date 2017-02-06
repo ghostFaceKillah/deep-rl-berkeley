@@ -1,7 +1,8 @@
 # Solution HW no 1
 
-TODO: make docstrings for functions!!
-TODO: make a more interesting writeup here...
+TODOs:
+*  make docstrings for functions!!
+* make a more interesting writeups here...
 
 The goal of this task was to implement behavioral cloning and DAgger policies and compare
 how well they perform compared to the provided expert policy.
@@ -60,6 +61,6 @@ how much data we need to train the cloning policy.
 
 Get data for this task by running `run_dagger.py`. Above tasks need to be run first.
 
-Result, presented for task `Reacher-v1` for which the DAgger policy outperforms vanilla.
+Result, presented for task `Hopper-v1` for which the DAgger policy outperforms vanilla.
 
-![Reacher reward vs epoch](imgs/dagger-vanilla-comp-Reacher-v1.png)
+![Reacher reward vs epoch](imgs/dagger-vanilla-comp-Hopper-v1.png)
