@@ -296,7 +296,7 @@ def run_epoch_grid(task):
 
 
 if __name__ == '__main__':
-    # run_all_vanilla_experiments()
+    run_all_vanilla_experiments()
 
     for task in tqdm.tqdm(TASK_LIST):
         run_epoch_grid(task)

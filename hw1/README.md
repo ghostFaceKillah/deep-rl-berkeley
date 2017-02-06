@@ -1,5 +1,8 @@
 # Solution HW no 1
 
+TODO: make docstrings for functions!!
+TODO: make a more interesting writeup here...
+
 The goal of this task was to implement behavioral cloning and DAgger policies and compare
 how well they perform compared to the provided expert policy.
 
@@ -53,12 +56,10 @@ how much data we need to train the cloning policy.
 ![Reacher reward vs epoch](imgs/Reacher-v1-epoch-reward.png)
 
 
+### Question 3 - DAgger
 
-### [TODO] Question 3 - DAgger
+Get data for this task by running `run_dagger.py`. Above tasks need to be run first.
 
- Run DAgger and report results on one task in which DAgger can learn a better 
- policy than behavioral cloning. Report your results in the form of a learning curve, plotting the number of DAgger iterations
- vs. the policy’s mean return, with error bars to show the standard deviation. Include the performance
- of the expert policy and the behavioral cloning agent on the same plot. In the caption, state which
-   task you used, and any details regarding network architecture, amount of data, etc. (as in the previous
-    section).
+Result, presented for task `Reacher-v1` for which the DAgger policy outperforms vanilla.
+
+![Reacher reward vs epoch](imgs/dagger-vanilla-comp-Reacher-v1.png)
