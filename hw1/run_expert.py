@@ -13,12 +13,19 @@ import tensorflow as tf
 import numpy as np
 import tf_util
 import gym
+from gym import wrappers
 import load_policy
+import time
+
+FPS = 10.0
+
+SECONDS_PER_ITER = 1.0 / FPS
+
 
 def main():
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('expert_policy_file', type=str)
+    # parser.add_argument('expert_policy_file', type=str)
     parser.add_argument('envname', type=str)
     parser.add_argument('--render', action='store_true')
     parser.add_argument("--max_timesteps", type=int)
@@ -27,14 +34,16 @@ def main():
     args = parser.parse_args()
 
     print('loading and building expert policy')
-    policy_fn = load_policy.load_policy(args.expert_policy_file)
+    policy_fn = load_policy.load_policy('experts/{}.pkl'.format(args.envname))
     print('loaded and built')
 
+    last_time = 0.0
     with tf.Session():
         tf_util.initialize()
 
         import gym
         env = gym.make(args.envname)
+        env = wrappers.Monitor(env, '/tmp/{}'.format(args.envname), force=True)
         max_steps = args.max_timesteps or env.spec.timestep_limit
 
         returns = []
@@ -53,7 +62,10 @@ def main():
                 obs, r, done, _ = env.step(action)
                 totalr += r
                 steps += 1
-                if args.render:
+                if True:
+                    while time.time() - last_time <= SECONDS_PER_ITER:
+                        pass
+                    last_time = time.time()
                     env.render()
                 if steps % 100 == 0: print("%i/%i"%(steps, max_steps))
                 if steps >= max_steps:
