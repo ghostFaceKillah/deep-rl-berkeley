@@ -8,4 +8,4 @@ The goal of this project was to learn Behavioral Cloning policy.
 
 ### ENVS
 
-![](vid/Ant.gif)
+<img src="vid/Ant.gif" height="280">
