@@ -45,16 +45,16 @@ Learning rate is training metaparameter that is always interesting to check.
 Here it looks as if there is pretty good stable region for the hard task.
 
 
-![Reacher reward vs learning rate](imgs/Reacher-v1-lr-reward.png)
+![Reacher reward vs learning rate](../imgs/Reacher-v1-lr-reward.png)
 
 Zoom into the most interesting region.
 
-![Reacher reward vs learning rate zoom in](imgs/Reacher-v1-2-lr-reward.png)
+![Reacher reward vs learning rate zoom in](../imgs/Reacher-v1-2-lr-reward.png)
 
 What about the number of training epochs? This give us indication about 
 how much data we need to train the cloning policy.
 
-![Reacher reward vs epoch](imgs/Reacher-v1-epoch-reward.png)
+![Reacher reward vs epoch](../imgs/Reacher-v1-epoch-reward.png)
 
 
 ### Question 3 - DAgger
@@ -63,4 +63,4 @@ Get data for this task by running `run_dagger.py`. Above tasks need to be run fi
 
 Result, presented for task `Hopper-v1` for which the DAgger policy outperforms vanilla.
 
-![Reacher reward vs epoch](imgs/dagger-vanilla-comp-Hopper-v1.png)
+![Reacher reward vs epoch](../imgs/dagger-vanilla-comp-Hopper-v1.png)
