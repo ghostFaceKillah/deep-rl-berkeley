@@ -76,11 +76,23 @@ def run_value_iteration_experiment():
 
 
 def compute_vpi(pi, mdp, gamma):
-    pass
+    r = np.zeros(mdp.nS, dtype=np.float32)
+    P = np.zeros((mdp.nS, mdp.nS), dtype=np.float32)
+
+    for state in range(mdp.nS):
+        action = pi[state]
+        possible_transitions = mdp.P[state][action]
+        for prob, next_state, reward in possible_transitions:
+            P[state][next_state] = prob
+            r[state] += prob * reward
+    vpi = np.linalg.inv(np.eye(len(P)) - gamma * P).dot(r)
+    return vpi
 
 
 if __name__ == "__main__":
-    run_value_iteration_experiment()
-    # mdp = get_sample_mdp()
-    # gamma = 0.95 
-    # pi = [1, 1, 1]
+
+    mdp = get_sample_mdp()
+    gamma = 0.95 
+    pi = [1, 1, 1]
+
+    print compute_vpi(pi, mdp, gamma)
