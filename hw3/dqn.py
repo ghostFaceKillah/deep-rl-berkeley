@@ -2,6 +2,7 @@ import sys
 import gym.spaces
 import itertools
 import numpy as np
+import ipdb
 import random
 import tensorflow                as tf
 import tensorflow.contrib.layers as layers
@@ -126,6 +127,23 @@ def learn(env,
     # q_func_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='q_func')
     # Older versions of TensorFlow may require using "VARIABLES" instead of "GLOBAL_VARIABLES"
     ######
+
+    # [TQ](s_t, a_t) 
+    # TQ_t = r_t + \gamma max_{a_t+1} Q(s_t+1, a_t+1)
+
+    q = q_func(obs_t_float, num_actions, scope="q_func", reuse=False)
+    new_q_func = rew_t_ph + gamma * tf.reduce_max(q, axis=0)
+
+    total_error = tf.squared_difference()
+    ipdb.set_trace()
+
+    #
+    # nowy_ziemniak =  
+    #   minimize_ziemniak \sum_t || Q_ziemniak(s_t, a_t) - TQ_t(s_t, a_t) ||
+    #
+    #
+    #
+    #
     
     # YOUR CODE HERE
 
@@ -209,6 +227,7 @@ def learn(env,
         if (t > learning_starts and
                 t % learning_freq == 0 and
                 replay_buffer.can_sample(batch_size)):
+            pass
             # Here, you should perform training. Training consists of four steps:
             # 3.a: use the replay buffer to sample a batch of transitions (see the
             # replay buffer code for function definition, each batch that you sample
