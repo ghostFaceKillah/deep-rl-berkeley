@@ -222,7 +222,6 @@ class ReplayBuffer(object):
 
         return obs_batch, act_batch, rew_batch, next_obs_batch, done_mask
 
-
     def sample(self, batch_size):
         """Sample `batch_size` different transitions.
 

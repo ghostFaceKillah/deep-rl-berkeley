@@ -1,13 +1,11 @@
-import sys
+from collections import namedtuple
+from dqn_utils import *
+
 import gym.spaces
 import itertools
 import numpy as np
-import ipdb
-import random
+import sys
 import tensorflow                as tf
-import tensorflow.contrib.layers as layers
-from collections import namedtuple
-from dqn_utils import *
 
 OptimizerSpec = namedtuple("OptimizerSpec", ["constructor", "kwargs", "lr_schedule"])
 
@@ -126,28 +124,18 @@ def learn(env,
     # And then you can obtain the variables like this:
     # q_func_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='q_func')
     # Older versions of TensorFlow may require using "VARIABLES" instead of "GLOBAL_VARIABLES"
-    ######
 
-    # [TQ](s_t, a_t) 
-    # TQ_t = r_t + \gamma max_{a_t+1} Q(s_t+1, a_t+1)
-
+    # Construct the q-function and q function vars
+    target_q = q_func(obs_t_float, num_actions, scope="target_q_func", reuse=False)
     q = q_func(obs_t_float, num_actions, scope="q_func", reuse=False)
-    new_q_func = rew_t_ph + gamma * tf.reduce_max(q, axis=0)
 
-    total_error = tf.squared_difference()
-    ipdb.set_trace()
+    target_q_func_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='target_q_func')
+    q_func_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='q_func')
 
-    #
-    # nowy_ziemniak =  
-    #   minimize_ziemniak \sum_t || Q_ziemniak(s_t, a_t) - TQ_t(s_t, a_t) ||
-    #
-    #
-    #
-    #
-    
-    # YOUR CODE HERE
+    target_val = rew_t_ph + (1 - done_mask_ph) * gamma * tf.reduce_max(target_q, axis=1)
+    q_val = tf.reduce_sum(tf.one_hot(act_t_ph, num_actions) * q, axis=1)
 
-    ######
+    total_error = tf.reduce_mean(tf.squared_difference(q_val, target_val))
 
     # construct optimization op (with gradient clipping)
     learning_rate = tf.placeholder(tf.float32, (), name="learning_rate")
@@ -211,9 +199,24 @@ def learn(env,
         # might as well be random, since you haven't trained your net...)
 
         #####
-        
-        # YOUR CODE HERE
 
+        idx = replay_buffer.store_frame(last_obs)
+        q_input = replay_buffer.encode_recent_observation()
+
+        choose_random_action = np.random.rand() < exploration.value(t)
+
+        if model_initialized and not choose_random_action:
+            action_value = session.run(q_func, feed_dict={obs_t_ph: q_input})
+            action = np.argmax(action_value)
+        else:
+            action = np.random.randint(num_actions)
+
+        last_obs, reward, done, info = env.step(action)
+        replay_buffer.store_effect(idx, action, reward, done)
+
+        if done: 
+            last_obs = env.reset()
+        
         #####
 
         # at this point, the environment should have been advanced one step (and
@@ -227,7 +230,6 @@ def learn(env,
         if (t > learning_starts and
                 t % learning_freq == 0 and
                 replay_buffer.can_sample(batch_size)):
-            pass
             # Here, you should perform training. Training consists of four steps:
             # 3.a: use the replay buffer to sample a batch of transitions (see the
             # replay buffer code for function definition, each batch that you sample
@@ -262,8 +264,38 @@ def learn(env,
             # you should update every target_update_freq steps, and you may find the
             # variable num_param_updates useful for this (it was initialized to 0)
             #####
-            
-            # YOUR CODE HERE
+
+            # 3.a
+            (
+                obs_batch, act_batch, rew_batch, next_obs_batch, done_masks
+            ) = replay_buffer.sample(batch_size)
+
+            # 3.b
+            if not model_initialized:
+                print 80 * "="
+                print "INITIALIZING THE MODELINO"
+                initialize_interdependent_variables(session, tf.global_variables(), {
+                    obs_t_ph: obs_batch,
+                    obs_tp1_ph: next_obs_batch
+                })
+                print 80 * "="
+                session.run(update_target_fn)
+                model_initialized = True
+
+            # 3.c
+            session.run(train_fn, feed_dict={
+                obs_t_ph: obs_batch,
+                act_t_ph: act_batch,
+                rew_t_ph: rew_batch,
+                obs_tp1_ph: next_obs_batch,
+                done_mask_ph: done_masks,
+                learning_rate: optimizer_spec.lr_schedule.value(t)
+            })
+
+            # 3.d: periodically update the target network by calling
+            if t // target_update_freq < num_param_updates:
+                session.run(update_target_fn)
+                num_param_updates += 1
 
             #####
 
