@@ -206,7 +206,7 @@ def learn(env,
         choose_random_action = np.random.rand() < exploration.value(t)
 
         if model_initialized and not choose_random_action:
-            action_value = session.run(q_func, feed_dict={obs_t_ph: q_input})
+            action_value = session.run(q, feed_dict={obs_t_ph: [q_input]})[0]
             action = np.argmax(action_value)
         else:
             action = np.random.randint(num_actions)
