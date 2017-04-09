@@ -2,6 +2,7 @@ from collections import namedtuple
 from dqn_utils import *
 
 import gym.spaces
+import ipdb
 import itertools
 import numpy as np
 import sys
@@ -132,10 +133,14 @@ def learn(env,
     target_q_func_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='target_q_func')
     q_func_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='q_func')
 
-    target_val = rew_t_ph + (1 - done_mask_ph) * gamma * tf.reduce_max(target_q, axis=1)
-    q_val = tf.reduce_sum(tf.one_hot(act_t_ph, num_actions) * q, axis=1)
+    target_val = rew_t_ph + (1 - done_mask_ph) * gamma * tf.reduce_max(target_q)
+    q_val = tf.reduce_sum(
+        tf.multiply(
+            q,
+            tf.one_hot(act_t_ph, num_actions, dtype=tf.float32)
+        ), axis=1)
 
-    total_error = tf.reduce_mean(tf.squared_difference(q_val, target_val))
+    total_error = tf.reduce_sum(tf.squared_difference(q_val, target_val))
 
     # construct optimization op (with gradient clipping)
     learning_rate = tf.placeholder(tf.float32, (), name="learning_rate")
@@ -206,8 +211,8 @@ def learn(env,
         choose_random_action = np.random.rand() < exploration.value(t)
 
         if model_initialized and not choose_random_action:
-            action_value = session.run(q, feed_dict={obs_t_ph: [q_input]})[0]
-            action = np.argmax(action_value)
+            action_values = session.run(q, feed_dict={obs_t_ph: [q_input]})
+            action = np.argmax(action_values)
         else:
             action = np.random.randint(num_actions)
 
@@ -293,9 +298,17 @@ def learn(env,
             })
 
             # 3.d: periodically update the target network by calling
-            if t // target_update_freq < num_param_updates:
+            if t // target_update_freq > num_param_updates:
+                print 80 * "="
+                print "Updating the target network"
+                print 80 * "="
                 session.run(update_target_fn)
                 num_param_updates += 1
+            """
+            else:
+                if t % 100 == 0:
+                    print "Still no update, t= {}, target_update_freq ={}, t // target_update_freq = {}, num_param_updates = {}".format(t, target_update_freq, t // target_update_freq, num_param_updates)
+            """
 
             #####
 
@@ -306,7 +319,7 @@ def learn(env,
         if len(episode_rewards) > 100:
             best_mean_episode_reward = max(best_mean_episode_reward, mean_episode_reward)
         if t % LOG_EVERY_N_STEPS == 0 and model_initialized:
-            print("Timestep %d" % (t,))
+            print("Timestep {:,}".format(t))
             print("mean reward (100 episodes) %f" % mean_episode_reward)
             print("best mean reward %f" % best_mean_episode_reward)
             print("episodes %d" % len(episode_rewards))
