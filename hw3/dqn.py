@@ -128,8 +128,9 @@ def learn(env,
 
     # Construct the q-function and q function vars
 
-    # TODO: Here in the target_q I had as the first param obs_tp1_float and it was causing
-    # the algorhitm not to converge. Investigate in theory.
+    # NOTE: Here in the target_q I had as the first param obs_tp1_float and it
+    # was causing the algorhitm not to converge. Just a bug. No depth at all.
+    # Nor eason to work with same observations.
     target_q = q_func(obs_tp1_float, num_actions, scope="target_q_func", reuse=False)
     q = q_func(obs_t_float, num_actions, scope="q_func", reuse=False)
 
@@ -137,11 +138,7 @@ def learn(env,
     q_func_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='q_func')
 
     target_val = rew_t_ph + (1 - done_mask_ph) * gamma * tf.reduce_max(target_q, axis=1)
-
-    # TODO: Here I used to have the multiplication the other way round, i.e. tf.one_hot * Q
-    # Does it make a difference?
-    q_val = tf.reduce_sum(q * tf.one_hot(act_t_ph, num_actions), axis=1)
-
+    q_val = tf.reduce_sum(tf.one_hot(act_t_ph, num_actions) * q, axis=1)
     total_error = tf.reduce_sum(tf.squared_difference(q_val, target_val))
 
     # construct optimization op (with gradient clipping)
