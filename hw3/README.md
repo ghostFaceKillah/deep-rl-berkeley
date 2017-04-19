@@ -25,4 +25,5 @@ game AI.
 - Make nice training graphs (perhaps showing the testing / training error
   variance in different runs?).
 - Add some flow to this writeup
+- Describe an error that I have done that made the first iteration not to work
 
