@@ -1,12 +1,24 @@
 # Homework 4
 
-In `main.py` you will find an implementation of a "vanilla" policy gradient method, applied to an MDP with a discrete action space: an episodic version of the classic "cartpole" task. First, make sure the provided code works on your computer by running `python main.py`. We recommend reading through all of the code and comments in the function `main_cartpole`, starting at the top of the function.
+In `main.py` you will find an implementation of a "vanilla" policy gradient
+method, applied to an MDP with a discrete action space: an episodic version of
+the classic "cartpole" task. First, make sure the provided code works on your
+computer by running `python main.py`. We recommend reading through all of the
+code and comments in the function `main_cartpole`, starting at the top of the
+function.
 
-The code computes some useful diagnostics, which you may find helpful to look at while tuning hyperparameters:
+The code computes some useful diagnostics, which you may find helpful to look
+at while tuning hyperparameters:
  
-- **KL[policy before update || policy after update]**. Large spikes in KL divergence mean that the optimization took a large step, and sometimes these spikes cause a collapse in performance.
-- **Entropy of the policy**. If entropy goes down too fast, then you may not explore enough, but if it goes down too slowly, you'll probably not reach optimal performance.
-- **Explained variance of the value function**. If the value function perfectly explains the returns, then it will be 1; if you get a negative result, then it's worse than predicting a constant.
+- **KL[policy before update || policy after update]**. Large spikes in KL
+    divergence mean that the optimization took a large step, and sometimes these
+    spikes cause a collapse in performance.
+- **Entropy of the policy**. If entropy goes down too fast, then you may not
+    explore enough, but if it goes down too slowly, you'll probably not reach
+    optimal performance.
+- **Explained variance of the value function**. If the value function perfectly
+    explains the returns, then it will be 1; if you get a negative result, then
+    it's worse than predicting a constant.
 
 Software dependencies: 
 
@@ -16,7 +28,14 @@ Software dependencies:
 
 ## Problem 1
 
-Here you will modify the `main_cartpole` policy gradient implementation to work on a continuous action space, specifically, the gym environment `Pendulum-v`. Note that in `main_cartpole`, note that the neural network outputs "logits" (i.e., log-probabilities plus-or-minus a constant) that specify a categorical distribution. On the other hand, for the pendulum task, your neural network should output the mean of a Gaussian distribution, a separate parameter vector to parameterize the log standard deviation. For example, you could use the following code:
+Here you will modify the `main_cartpole` policy gradient implementation to work
+on a continuous action space, specifically, the gym environment `Pendulum-v`.
+Note that in `main_cartpole`, note that the neural network outputs "logits"
+(i.e., log-probabilities plus-or-minus a constant) that specify a categorical
+distribution. On the other hand, for the pendulum task, your neural network
+should output the mean of a Gaussian distribution, a separate parameter vector
+to parameterize the log standard deviation. For example, you could use the
+following code:
 
 ```python
 
