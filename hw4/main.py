@@ -103,17 +103,26 @@ def main_cartpole(n_iter=100, gamma=1.0, min_timesteps_per_batch=1000, stepsize=
 
     # Symbolic variables have the prefix sy_, to distinguish them from the numerical values
     # that are computed later in these function
-    sy_ob_no = tf.placeholder(shape=[None, ob_dim], name="ob", dtype=tf.float32) # batch of observations
-    sy_ac_n = tf.placeholder(shape=[None], name="ac", dtype=tf.int32) # batch of actions taken by the policy, used for policy gradient computation
-    sy_adv_n = tf.placeholder(shape=[None], name="adv", dtype=tf.float32) # advantage function estimate
-    sy_h1 = lrelu(dense(sy_ob_no, 32, "h1", weight_init=normc_initializer(1.0))) # hidden layer
-    sy_logits_na = dense(sy_h1, num_actions, "final", weight_init=normc_initializer(0.05)) # "logits", describing probability distribution of final layer
+    sy_ob_no = tf.placeholder(shape=[None, ob_dim], name="ob", dtype=tf.float32) 
+    # batch of observations
+    sy_ac_n = tf.placeholder(shape=[None], name="ac", dtype=tf.int32) 
+    # batch of actions taken by the policy, used for policy gradient computation
+    sy_adv_n = tf.placeholder(shape=[None], name="adv", dtype=tf.float32) 
+    # advantage function estimate
+    sy_h1 = lrelu(dense(sy_ob_no, 32, "h1", weight_init=normc_initializer(1.0))) 
+    # hidden layer
+    sy_logits_na = dense(sy_h1, num_actions, "final", weight_init=normc_initializer(0.05)) 
+    # "logits", describing probability distribution of final layer
     # we use a small initialization for the last layer, so the initial policy has maximal entropy
-    sy_oldlogits_na = tf.placeholder(shape=[None, num_actions], name='oldlogits', dtype=tf.float32) # logits BEFORE update (just used for KL diagnostic)
-    sy_logp_na = tf.nn.log_softmax(sy_logits_na) # logprobability of actions
-    sy_sampled_ac = categorical_sample_logits(sy_logits_na)[0] # sampled actions, used for defining the policy (NOT computing the policy gradient)
+    sy_oldlogits_na = tf.placeholder(shape=[None, num_actions], name='oldlogits', dtype=tf.float32) 
+    # logits BEFORE update (just used for KL diagnostic)
+    sy_logp_na = tf.nn.log_softmax(sy_logits_na) 
+    # logprobability of actions
+    sy_sampled_ac = categorical_sample_logits(sy_logits_na)[0] 
+    # sampled actions, used for defining the policy (NOT computing the policy gradient)
     sy_n = tf.shape(sy_ob_no)[0]
-    sy_logprob_n = fancy_slice_2d(sy_logp_na, tf.range(sy_n), sy_ac_n) # log-prob of actions taken -- used for policy gradient calculation
+    sy_logprob_n = fancy_slice_2d(sy_logp_na, tf.range(sy_n), sy_ac_n) 
+    # log-prob of actions taken -- used for policy gradient calculation
 
     # The following quantities are just used for computing KL and entropy, JUST FOR DIAGNOSTIC PURPOSES >>>>
     sy_oldlogp_na = tf.nn.log_softmax(sy_oldlogits_na)
@@ -123,9 +132,11 @@ def main_cartpole(n_iter=100, gamma=1.0, min_timesteps_per_batch=1000, stepsize=
     sy_ent = tf.reduce_sum( - sy_p_na * sy_logp_na) / tf.to_float(sy_n)
     # <<<<<<<<<<<<<
 
-    sy_surr = - tf.reduce_mean(sy_adv_n * sy_logprob_n) # Loss function that we'll differentiate to get the policy gradient ("surr" is for "surrogate loss")
+    sy_surr = - tf.reduce_mean(sy_adv_n * sy_logprob_n) 
+    # Loss function that we'll differentiate to get the policy gradient ("surr" is for "surrogate loss")
 
-    sy_stepsize = tf.placeholder(shape=[], dtype=tf.float32) # Symbolic, in case you want to change the stepsize during optimization. (We're not doing that currently)
+    sy_stepsize = tf.placeholder(shape=[], dtype=tf.float32) 
+    # Symbolic, in case you want to change the stepsize during optimization. (We're not doing that currently)
     update_op = tf.train.AdamOptimizer(sy_stepsize).minimize(sy_surr)
 
     tf_config = tf.ConfigProto(inter_op_parallelism_threads=1, intra_op_parallelism_threads=1) 
