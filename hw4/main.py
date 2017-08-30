@@ -76,16 +76,27 @@ class LinearValueFunction(object):
         A[np.arange(nfeats), np.arange(nfeats)] += 1e-3 # a little ridge regression
         b = Xp.T.dot(y)
         self.coef = np.linalg.solve(A, b)
+
     def predict(self, X):
         if self.coef is None:
             return np.zeros(X.shape[0])
         else:
             return self.preproc(X).dot(self.coef)
+
     def preproc(self, X):
         return np.concatenate([np.ones([X.shape[0], 1]), X, np.square(X)/2.0], axis=1)
 
+
 class NnValueFunction(object):
-    pass # YOUR CODE HERE
+    # YOUR CODE HERE
+    coef = None
+    def fit(self, X, y):
+        pass
+
+    def predict(self, X):
+        pass
+
+
 
 def lrelu(x, leak=0.2):
     f1 = 0.5 * (1 + leak)
@@ -94,26 +105,52 @@ def lrelu(x, leak=0.2):
 
 
 
-def main_cartpole(n_iter=100, gamma=1.0, min_timesteps_per_batch=1000, stepsize=1e-2, animate=True, logdir=None):
+def main_cartpole(n_iter=100, gamma=1.0, min_timesteps_per_batch=1000,
+                  stepsize=1e-2, animate=True, logdir=None):
+
     env = gym.make("CartPole-v0")
     ob_dim = env.observation_space.shape[0]
     num_actions = env.action_space.n
     logz.configure_output_dir(logdir)
+
     vf = LinearValueFunction()
 
     # Symbolic variables have the prefix sy_, to distinguish them from the numerical values
     # that are computed later in these function
-    sy_ob_no = tf.placeholder(shape=[None, ob_dim], name="ob", dtype=tf.float32) # batch of observations
-    sy_ac_n = tf.placeholder(shape=[None], name="ac", dtype=tf.int32) # batch of actions taken by the policy, used for policy gradient computation
-    sy_adv_n = tf.placeholder(shape=[None], name="adv", dtype=tf.float32) # advantage function estimate
-    sy_h1 = lrelu(dense(sy_ob_no, 32, "h1", weight_init=normc_initializer(1.0))) # hidden layer
-    sy_logits_na = dense(sy_h1, num_actions, "final", weight_init=normc_initializer(0.05)) # "logits", describing probability distribution of final layer
+
+    # batch of observations
+    sy_ob_no = tf.placeholder(
+        shape=[None, ob_dim], 
+        name="ob",
+        dtype=tf.float32
+    )
+
+    # batch of actions taken by the policy, used for policy gradient computation
+    sy_ac_n = tf.placeholder(shape=[None], name="ac", dtype=tf.int32)
+
+    # advantage function estimate
+    sy_adv_n = tf.placeholder(shape=[None], name="adv", dtype=tf.float32)
+
+    # hidden layer
+    sy_h1 = lrelu(dense(sy_ob_no, 32, "h1", weight_init=normc_initializer(1.0)))
+
+    # "logits", describing probability distribution of final layer
+    sy_logits_na = dense(sy_h1, num_actions, "final", weight_init=normc_initializer(0.05))
+
     # we use a small initialization for the last layer, so the initial policy has maximal entropy
-    sy_oldlogits_na = tf.placeholder(shape=[None, num_actions], name='oldlogits', dtype=tf.float32) # logits BEFORE update (just used for KL diagnostic)
-    sy_logp_na = tf.nn.log_softmax(sy_logits_na) # logprobability of actions
-    sy_sampled_ac = categorical_sample_logits(sy_logits_na)[0] # sampled actions, used for defining the policy (NOT computing the policy gradient)
+    # logits BEFORE update (just used for KL diagnostic)
+    sy_oldlogits_na = tf.placeholder(shape=[None, num_actions], name='oldlogits', dtype=tf.float32)
+
+    # logprobability of actions
+    sy_logp_na = tf.nn.log_softmax(sy_logits_na)
+
+    # sampled actions, used for defining the policy (NOT computing the policy gradient)
+    sy_sampled_ac = categorical_sample_logits(sy_logits_na)[0]
+
     sy_n = tf.shape(sy_ob_no)[0]
-    sy_logprob_n = fancy_slice_2d(sy_logp_na, tf.range(sy_n), sy_ac_n) # log-prob of actions taken -- used for policy gradient calculation
+
+    # log-prob of actions taken -- used for policy gradient calculation
+    sy_logprob_n = fancy_slice_2d(sy_logp_na, tf.range(sy_n), sy_ac_n)
 
     # The following quantities are just used for computing KL and entropy, JUST FOR DIAGNOSTIC PURPOSES >>>>
     sy_oldlogp_na = tf.nn.log_softmax(sy_oldlogits_na)
@@ -123,22 +160,28 @@ def main_cartpole(n_iter=100, gamma=1.0, min_timesteps_per_batch=1000, stepsize=
     sy_ent = tf.reduce_sum( - sy_p_na * sy_logp_na) / tf.to_float(sy_n)
     # <<<<<<<<<<<<<
 
-    sy_surr = - tf.reduce_mean(sy_adv_n * sy_logprob_n) # Loss function that we'll differentiate to get the policy gradient ("surr" is for "surrogate loss")
+    # Loss function that we'll differentiate to get the policy gradient ("surr" is for "surrogate loss")
+    sy_surr = - tf.reduce_mean(sy_adv_n * sy_logprob_n)
 
-    sy_stepsize = tf.placeholder(shape=[], dtype=tf.float32) # Symbolic, in case you want to change the stepsize during optimization. (We're not doing that currently)
+    # Symbolic, in case you want to change the stepsize during optimization. (We're not doing that currently)
+    sy_stepsize = tf.placeholder(shape=[], dtype=tf.float32)
+
     update_op = tf.train.AdamOptimizer(sy_stepsize).minimize(sy_surr)
 
-    tf_config = tf.ConfigProto(inter_op_parallelism_threads=1, intra_op_parallelism_threads=1) 
+    tf_config = tf.ConfigProto(inter_op_parallelism_threads=1, intra_op_parallelism_threads=1)
+
     # use single thread. on such a small problem, multithreading gives you a slowdown
     # this way, we can better use multiple cores for different experiments
     sess = tf.Session(config=tf_config)
-    sess.__enter__() # equivalent to `with sess:`
+
+    # equivalent to `with sess:`
+    sess.__enter__()
     tf.global_variables_initializer().run() #pylint: disable=E1101
 
     total_timesteps = 0
 
     for i in range(n_iter):
-        print("********** Iteration %i ************"%i)
+        print("********** Iteration {} ************".format(i))
 
         # Collect paths until we have enough timesteps
         timesteps_this_batch = 0
@@ -186,8 +229,23 @@ def main_cartpole(n_iter=100, gamma=1.0, min_timesteps_per_batch=1000, stepsize=
         vf.fit(ob_no, vtarg_n)
 
         # Policy update
-        _, oldlogits_na = sess.run([update_op, sy_logits_na], feed_dict={sy_ob_no:ob_no, sy_ac_n:ac_n, sy_adv_n:standardized_adv_n, sy_stepsize:stepsize})
-        kl, ent = sess.run([sy_kl, sy_ent], feed_dict={sy_ob_no:ob_no, sy_oldlogits_na:oldlogits_na})
+        _, oldlogits_na = sess.run(
+            [update_op, sy_logits_na],
+            feed_dict={
+                sy_ob_no:ob_no,
+                sy_ac_n:ac_n,
+                sy_adv_n:standardized_adv_n,
+                sy_stepsize:stepsize
+            }
+        )
+
+        kl, ent = sess.run(
+            [sy_kl, sy_ent],
+            feed_dict={
+                sy_ob_no:ob_no,
+                sy_oldlogits_na:oldlogits_na
+            }
+        )
 
         # Log diagnostics
         logz.log_tabular("EpRewMean", np.mean([path["reward"].sum() for path in paths]))
