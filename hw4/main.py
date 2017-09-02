@@ -1,8 +1,9 @@
-import numpy as np
-import tensorflow as tf
 import gym
 import logz
+import numpy as np
 import scipy.signal
+import tensorflow as tf
+import tensorflow.contrib.layers as layers
 
 def normc_initializer(std=1.0):
     """
@@ -88,25 +89,64 @@ class LinearValueFunction(object):
 
 
 class NnValueFunction(object):
-    # YOUR CODE HERE
-    def __init__(self, ob_dim):
-        # Define the model
+    """
+    Inspired by Daniel Seita's implementation
+    https://github.com/DanielTakeshi/rl_algorithms/blob/master/utils/value_functions.py
+    """
 
-        self.input_placeholder = tf.placeholder(shape=[None, ob_dim], name='vf_ob', dtype='??? Duno lol. Check in the below env')
+    def __init__(self, session, ob_dim, n_epochs=20):
+        self.obs = tf.placeholder(shape=[None, 2 * ob_dim], name='nn_val_func_ob', dtype=tf.float32)
+        self.h1 = layers.fully_connected(
+            self.obs,
+            num_outputs=50,
+            weights_initializer=layers.xavier_initializer(uniform=True),
+            activation_fn=tf.nn.elu
+        )
+        self.h2 = layers.fully_connected(
+            self.obs,
+            num_outputs=50,
+            weights_initializer=layers.xavier_initializer(uniform=True),
+            activation_fn=tf.nn.elu
+        )
+        self.y_pred = layers.fully_connected(
+            self.h2,
+            num_outputs=1,
+            weights_initializer=layers.xavier_initializer(uniform=True)
+        )
 
-        h1 = lrelu(dense(X, 32, 'value_h1', weight_init=normc_initializer(1.0)))
-        h2 = lrelu(dense(h1, 32, 'value_h2', weight_init=normc_initializer(1.0)))
-        self.y_pred = dense(h2, 1, 'nn_value_output', weight_init=normc_initializer(1.0))
+        # For the loss function, which is the simple (mean) L2 error
+        self.sess =    = session
+        self.n_epochs  = n_epochs
+        self.y_targets = tf.placeholder(shape=[None], name='nn_val_func_target', dtype=tf.float32)
+        self.loss      = tf.losses.mean_squared_error(self.y_targets, self.y_pred)
+        self.train_op  = tf.train.AdamOptimizer().minimize(self.loss)
 
-        pass
-
-    def fit(self, X, y, sess):
-        pass
+    def fit(self, X, y):
+        """
+        Update the value function based on current batch of observations
+        """
+        assert X.shape[0] == y.shape[0]
+        assert len(y.shape) == 1
+        Xp = self.preproc(X)
+        for _ in range(self.n_epochs):
+            _, _ = self.sess.run(
+                [self.train_op, self.loss],
+                feed_dict={
+                    self.obs: Xp,
+                    self.y_targets: y
+                }
+            )
 
     def predict(self, X):
+        """ Estimate value of given state"""
+        # Should we expand state dim to from (n,) to (n, 1)?
 
-        pass
+        Xp = self.preproc(X)
+        return self.sess.run(self.y_pred, feed_dict={self.obs: Xp})
 
+    def preproc(self, X):
+        """Add some nonlinearity to the inputs """
+        return np.concatenate([X, np.square(X) / 2.0], axis=1)
 
 
 def lrelu(x, leak=0.2):
@@ -115,7 +155,48 @@ def lrelu(x, leak=0.2):
     return f1 * x + f2 * abs(x)
 
 
-def cartpole_prepare_model(ob_dim, num_actions):
+def run_vanilla_policy_gradient_experiment(args, vf_params, env, sess, continuous_control):
+    """
+    General purpose method to run vanilla policy gradients.
+    Works for both continuous and discrete environments.
+
+    Roughly inspired by starter code for this homework and
+    https://github.com/DanielTakeshi/rl_algorithms/blob/master/vpg/main.py
+
+    Thanks!
+
+    Params
+    ------
+    args: arguments for vanilla policy gradient.
+    vf_params: dict of params for value function
+    logdir: where to store outputs or None if you don't want to store anything
+    env: openai gym env
+    sess: TF session
+    continuous_control: boolean, if true then we do gaussian continuous control
+    """
+
+    ob_dim = env.observation_space.shape[0]
+
+    if args.vf_type == 'linear':
+        value_function = LinearValueFunction(**vf_params)
+    elif args.vf_type == 'nn':
+        vf = NnValueFunction(session=sess, ob_dim=ob_dim)
+
+    pass
+
+
+
+
+def main_cartpole(n_iter=100, gamma=1.0, min_timesteps_per_batch=1000, stepsize=1e-2, animate=True, logdir=None):
+    env = gym.make("CartPole-v0")
+    ob_dim = env.observation_space.shape[0]
+    num_actions = env.action_space.n
+    logz.configure_output_dir(logdir)
+    vf = LinearValueFunction()
+
+    # Symbolic variables have the prefix sy_, to distinguish them from the numerical values
+    # that are computed later in these function
+    sy_ob_no = tf.placeholder(shape=[None, ob_dim], name="ob", dtype=tf.float32) 
     # batch of observations
     sy_ob_no = tf.placeholder(
         shape=[None, ob_dim],
