@@ -13,3 +13,12 @@ Here you can find my solutions and write-ups for the homeworks:
 * [Homework 1 - Behavioral cloning with DNN](hw1/README.md)
 * [Homework 2 - Markov Decision Processes](hw2/README.md)
 * [Homework 3 - Deep Q Learning](hw3/README.md)
+
+
+
+
+###### TODO
+
+* finish homework 4
+* step up the write up game
+    * make explainations of what needs to be done in each homework

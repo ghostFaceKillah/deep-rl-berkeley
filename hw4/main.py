@@ -1,8 +1,9 @@
-import numpy as np
-import tensorflow as tf
 import gym
 import logz
+import numpy as np
 import scipy.signal
+import tensorflow as tf
+import tensorflow.contrib.layers as layers
 
 def normc_initializer(std=1.0):
     """
@@ -84,13 +85,103 @@ class LinearValueFunction(object):
     def preproc(self, X):
         return np.concatenate([np.ones([X.shape[0], 1]), X, np.square(X)/2.0], axis=1)
 
+
 class NnValueFunction(object):
-    pass # YOUR CODE HERE
+    """
+    Inspired by Daniel Seita's implementation
+    https://github.com/DanielTakeshi/rl_algorithms/blob/master/utils/value_functions.py
+    """
+
+    def __init__(self, session, ob_dim, n_epochs=20):
+        self.obs = tf.placeholder(shape=[None, 2 * ob_dim], name='nn_val_func_ob', dtype=tf.float32)
+        self.h1 = layers.fully_connected(
+            self.obs,
+            num_outputs=50,
+            weights_initializer=layers.xavier_initializer(uniform=True),
+            activation_fn=tf.nn.elu
+        )
+        self.h2 = layers.fully_connected(
+            self.obs,
+            num_outputs=50,
+            weights_initializer=layers.xavier_initializer(uniform=True),
+            activation_fn=tf.nn.elu
+        )
+        self.y_pred = layers.fully_connected(
+            self.h2,
+            num_outputs=1,
+            weights_initializer=layers.xavier_initializer(uniform=True)
+        )
+
+        # For the loss function, which is the simple (mean) L2 error
+        self.sess =    = session
+        self.n_epochs  = n_epochs
+        self.y_targets = tf.placeholder(shape=[None], name='nn_val_func_target', dtype=tf.float32)
+        self.loss      = tf.losses.mean_squared_error(self.y_targets, self.y_pred)
+        self.train_op  = tf.train.AdamOptimizer().minimize(self.loss)
+
+    def fit(self, X, y):
+        """
+        Update the value function based on current batch of observations
+        """
+        assert X.shape[0] == y.shape[0]
+        assert len(y.shape) == 1
+        Xp = self.preproc(X)
+        for _ in range(self.n_epochs):
+            _, _ = self.sess.run(
+                [self.train_op, self.loss],
+                feed_dict={
+                    self.obs: Xp,
+                    self.y_targets: y
+                }
+            )
+
+    def predict(self, X):
+        """ Estimate value of given state"""
+        # Should we expand state dim to from (n,) to (n, 1)?
+
+        Xp = self.preproc(X)
+        return self.sess.run(self.y_pred, feed_dict={self.obs: Xp})
+
+    def preproc(self, X):
+        """Add some nonlinearity to the inputs """
+        return np.concatenate([X, np.square(X) / 2.0], axis=1)
+
 
 def lrelu(x, leak=0.2):
     f1 = 0.5 * (1 + leak)
     f2 = 0.5 * (1 - leak)
     return f1 * x + f2 * abs(x)
+
+
+def run_vanilla_policy_gradient_experiment(args, vf_params, env, sess, continuous_control):
+    """
+    General purpose method to run vanilla policy gradients.
+    Works for both continuous and discrete environments.
+
+    Roughly inspired by starter code for this homework and
+    https://github.com/DanielTakeshi/rl_algorithms/blob/master/vpg/main.py
+
+    Thanks!
+
+    Params
+    ------
+    args: arguments for vanilla policy gradient.
+    vf_params: dict of params for value function
+    logdir: where to store outputs or None if you don't want to store anything
+    env: openai gym env
+    sess: TF session
+    continuous_control: boolean, if true then we do gaussian continuous control
+    """
+
+    ob_dim = env.observation_space.shape[0]
+
+    if args.vf_type == 'linear':
+        value_function = LinearValueFunction(**vf_params)
+    elif args.vf_type == 'nn':
+        vf = NnValueFunction(session=sess, ob_dim=ob_dim)
+
+    pass
+
 
 
 
