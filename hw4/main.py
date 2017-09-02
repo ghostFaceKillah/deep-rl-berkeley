@@ -89,11 +89,22 @@ class LinearValueFunction(object):
 
 class NnValueFunction(object):
     # YOUR CODE HERE
-    coef = None
-    def fit(self, X, y):
+    def __init__(self, ob_dim):
+        # Define the model
+
+        self.input_placeholder = tf.placeholder(shape=[None, ob_dim], name='vf_ob', dtype='??? Duno lol. Check in the below env')
+
+        h1 = lrelu(dense(X, 32, 'value_h1', weight_init=normc_initializer(1.0)))
+        h2 = lrelu(dense(h1, 32, 'value_h2', weight_init=normc_initializer(1.0)))
+        self.y_pred = dense(h2, 1, 'nn_value_output', weight_init=normc_initializer(1.0))
+
+        pass
+
+    def fit(self, X, y, sess):
         pass
 
     def predict(self, X):
+
         pass
 
 
@@ -104,23 +115,10 @@ def lrelu(x, leak=0.2):
     return f1 * x + f2 * abs(x)
 
 
-
-def main_cartpole(n_iter=100, gamma=1.0, min_timesteps_per_batch=1000,
-                  stepsize=1e-2, animate=True, logdir=None):
-
-    env = gym.make("CartPole-v0")
-    ob_dim = env.observation_space.shape[0]
-    num_actions = env.action_space.n
-    logz.configure_output_dir(logdir)
-
-    vf = LinearValueFunction()
-
-    # Symbolic variables have the prefix sy_, to distinguish them from the numerical values
-    # that are computed later in these function
-
+def cartpole_prepare_model(ob_dim, num_actions):
     # batch of observations
     sy_ob_no = tf.placeholder(
-        shape=[None, ob_dim], 
+        shape=[None, ob_dim],
         name="ob",
         dtype=tf.float32
     )
@@ -154,7 +152,7 @@ def main_cartpole(n_iter=100, gamma=1.0, min_timesteps_per_batch=1000,
 
     # The following quantities are just used for computing KL and entropy, JUST FOR DIAGNOSTIC PURPOSES >>>>
     sy_oldlogp_na = tf.nn.log_softmax(sy_oldlogits_na)
-    sy_oldp_na = tf.exp(sy_oldlogp_na) 
+    sy_oldp_na = tf.exp(sy_oldlogp_na)
     sy_kl = tf.reduce_sum(sy_oldp_na * (sy_oldlogp_na - sy_logp_na)) / tf.to_float(sy_n)
     sy_p_na = tf.exp(sy_logp_na)
     sy_ent = tf.reduce_sum( - sy_p_na * sy_logp_na) / tf.to_float(sy_n)
@@ -167,6 +165,32 @@ def main_cartpole(n_iter=100, gamma=1.0, min_timesteps_per_batch=1000,
     sy_stepsize = tf.placeholder(shape=[], dtype=tf.float32)
 
     update_op = tf.train.AdamOptimizer(sy_stepsize).minimize(sy_surr)
+
+    return (
+        sy_ac_n, sy_adv_n, sy_ent, sy_kl,
+        sy_logits_na, sy_ob_no, sy_oldlogits_na,
+        sy_sampled_ac, sy_stepsize, update_op
+    )
+
+
+def main_cartpole(n_iter=100, gamma=1.0, min_timesteps_per_batch=1000,
+                  stepsize=1e-2, animate=True, logdir=None):
+
+    env = gym.make("CartPole-v0")
+    ob_dim = env.observation_space.shape[0]
+    num_actions = env.action_space.n
+    logz.configure_output_dir(logdir)
+
+    vf = LinearValueFunction()
+
+    # Symbolic variables have the prefix sy_, to distinguish them from the numerical values
+    # that are computed later in these function
+    (
+        sy_ac_n, sy_adv_n, sy_ent, sy_kl,
+        sy_logits_na, sy_ob_no, sy_oldlogits_na,
+        sy_sampled_ac, sy_stepsize, update_op
+    ) = cartpole_prepare_model(ob_dim, num_actions)
+
 
     tf_config = tf.ConfigProto(inter_op_parallelism_threads=1, intra_op_parallelism_threads=1)
 
@@ -195,7 +219,11 @@ def main_cartpole(n_iter=100, gamma=1.0, min_timesteps_per_batch=1000,
                 if animate_this_episode:
                     env.render()
                 obs.append(ob)
-                ac = sess.run(sy_sampled_ac, feed_dict={sy_ob_no : ob[None]})
+                ac = sess.run(
+                    sy_sampled_ac,
+                    feed_dict={
+                        sy_ob_no : ob[None]
+                    })
                 acs.append(ac)
                 ob, rew, done, _ = env.step(ac)
                 rewards.append(rew)
@@ -274,10 +302,11 @@ def main_pendulum(logdir, seed, n_iter, gamma, min_timesteps_per_batch, initial_
 
     YOUR_CODE_HERE
 
+    # Loss function that we'll differentiate to get the policy gradient ("surr" is for "surrogate loss")
+    sy_surr = - tf.reduce_mean(sy_adv_n * sy_logprob_n)
 
-    sy_surr = - tf.reduce_mean(sy_adv_n * sy_logprob_n) # Loss function that we'll differentiate to get the policy gradient ("surr" is for "surrogate loss")
-
-    sy_stepsize = tf.placeholder(shape=[], dtype=tf.float32) # Symbolic, in case you want to change the stepsize during optimization. (We're not doing that currently)
+    # Symbolic, in case you want to change the stepsize during optimization. (We're not doing that currently)
+    sy_stepsize = tf.placeholder(shape=[], dtype=tf.float32)
     update_op = tf.train.AdamOptimizer(sy_stepsize).minimize(sy_surr)
 
     sess = tf.Session()

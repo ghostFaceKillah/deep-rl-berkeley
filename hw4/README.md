@@ -1,5 +1,9 @@
 # Homework 4
 
+
+### Very good implementation of Daniel Takeshi.
+https://github.com/DanielTakeshi/rl_algorithms/tree/master/vpg
+
 In `main.py` you will find an implementation of a "vanilla" policy gradient
 method, applied to an MDP with a discrete action space: an episodic version of
 the classic "cartpole" task. First, make sure the provided code works on your
