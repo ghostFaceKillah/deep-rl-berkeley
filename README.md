@@ -13,6 +13,7 @@ Here you can find my solutions and write-ups for the homeworks:
 * [Homework 1 - Behavioral cloning with DNN](hw1/README.md)
 * [Homework 2 - Markov Decision Processes](hw2/README.md)
 * [Homework 3 - Deep Q Learning](hw3/README.md)
+* For homework 4, you can checkout [awesome Daniel Seita's repo](https://github.com/DanielTakeshi/rl_algorithms/tree/master/vpg)
 
 
 
