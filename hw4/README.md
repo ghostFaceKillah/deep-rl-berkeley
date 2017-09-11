@@ -1,8 +1,23 @@
 # Homework 4
 
 
-### Very good implementation of Daniel Takeshi.
+### Acknowledgements, comments
+
+This part of repo is mix of starter code,
+very good implementation of Daniel Seita
 https://github.com/DanielTakeshi/rl_algorithms/tree/master/vpg
+with some modifications / original contributions to me.
+
+Remark for any vistor coming here to compare solutions / learn how to
+solve this homework. I think it is quite OK to just rewrite somebody's code in
+this set up. I find that re-typing by hand (not copy-pasting) the whole code
+of somebody else works really well for my understanding. Especially good
+trick for learning how to code in new language.
+Still, the most valuable is tackling whole yourself from beginning to start.
+I guess?
+
+
+### Original task statement
 
 In `main.py` you will find an implementation of a "vanilla" policy gradient
 method, applied to an MDP with a discrete action space: an episodic version of
